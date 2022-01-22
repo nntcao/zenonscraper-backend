@@ -1,5 +1,7 @@
+import 'dotenv/config'
 import { Pool, PoolClient } from 'pg'
 import { Momentum, Token, AccountBlock, Account } from '../znntypes'
+
 
 const pool = new Pool({
     host: process.env.DB_HOST,
@@ -8,6 +10,7 @@ const pool = new Pool({
     database: process.env.DB_DATABASE,
     port: Number(process.env.PORT),
 })
+
 
 interface IClientHandler {
     (client: PoolClient): any
