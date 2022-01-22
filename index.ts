@@ -2,7 +2,7 @@ import { QueryResult } from 'pg'
 import * as db from './services/db'
 import * as znn from './services/znn'
 import { Momentum, Token, AccountBlock, Account } from './znntypes'
-import WebSocket from 'ws'
+import * as WebSocket from 'ws'
 import { timeout } from './utils/time'
 
 async function main() {

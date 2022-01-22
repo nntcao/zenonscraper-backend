@@ -1,3 +1,7 @@
 .env
 shortcuts
 node_modules
+
+
+# build
+*.js
