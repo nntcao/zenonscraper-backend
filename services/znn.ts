@@ -2,7 +2,7 @@ import 'dotenv/config'
 import axios from 'axios'
 import { timeout } from '../utils/time'
 
-const requestsPerSecond: number = 0
+const requestsPerSecond: number = 200
 
 // MOMENTUMS
 
