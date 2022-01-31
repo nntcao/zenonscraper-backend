@@ -6,21 +6,27 @@ import * as WebSocket from 'ws'
 import { timeout } from './utils/time'
 
 async function main() {
-    initialize()
-    update()
-    updateMissingAccountBlocks()
+    // initialize()
+    // updateTxsMomentumsByNotification()
+    // updateMissingAccountBlocks()
+    updateAverageUsedPlasmaPerDay()
 }
 
 async function initialize() {
     const momentumBatchSize = 1000
-    let height = await getStartingHeight()
-    // let height = 1
+    let height = (await getStartingHeight()) - 5
+    // let height = 539923
+
+    let counter = height
+    console.log('initializing');
+    
     while (true) {
         const momentumBatch: Momentum[] | undefined = await znn.getMomentumsByHeightRange(height, momentumBatchSize)
         if ((typeof momentumBatch === 'undefined') || (momentumBatch.length === 0)) {
             break
         }
         for (const momentum of momentumBatch) {
+            console.log(counter++);
             await processMomentum(momentum)
         }
         height += momentumBatchSize
@@ -28,11 +34,10 @@ async function initialize() {
     console.log('finished initialization')
 }
 
-async function update() {
+async function updateTxsMomentumsByNotification() {
     const ws = new WebSocket(String(process.env.ZNND_WS_URI))
 
     ws.on('open', async (event: any[]) => {
-        console.log('Connected to ws://localhost:35998')
         let momentumSubscription: string | undefined, accountBlockSubscription: string | undefined = undefined
         ws.onmessage = async (message) => {
             const data: any = JSON.parse(String(message?.data))
@@ -80,9 +85,11 @@ async function update() {
     
 }
 
-async function updateMissingAccountBlocks() {
-    const timeoutMinutes = 30
-    while (true) {
+function updateMissingAccountBlocks() {
+    const timeoutMinutes = 5
+    const updateMissingAccountBlocksInterval = setInterval(async () => {
+        console.log("Updating account blocks")
+
         const accountBlockMissingQuery = await db.query(`
             SELECT hash FROM accountblock
             WHERE momentumhash IS NULL
@@ -98,14 +105,65 @@ async function updateMissingAccountBlocks() {
                 await processAccountBlock(accountBlock)
             }
         }
-        await timeout(timeoutMinutes * 60000)
+    }, timeoutMinutes * 60000)
+
+
+}
+
+async function updateAverageUsedPlasmaPerDay() {
+    await updatePlasma()
+    const updatePlasmaOnceADayInterval = setInterval(updatePlasma, 86400000)
+
+    async function updatePlasma() {
+        console.log('Updating Plasma Average per Day');
+
+        const latestPlasmaTime = await db.query(`
+            SELECT MAX(time) AS latesttime FROM plasmaday
+        `)
+
+        const mSecondsPerDay: number = 86400000
+        const currentTime = new Date().getTime()
+
+        let timeToAdd: number = latestPlasmaTime?.rows[0]?.latesttime ? Number(latestPlasmaTime?.rows[0]?.latesttime) * 1000 + mSecondsPerDay : 1637712000000;
+        while ((timeToAdd + mSecondsPerDay) < currentTime) {
+            console.log(timeToAdd + mSecondsPerDay, currentTime);
+            
+            const transactionsInTimePeriod = await db.query(`
+                SELECT b.usedplasma 
+                FROM (
+                    SELECT usedplasma, timestamp FROM accountblock
+                    INNER JOIN momentum
+                    ON momentum.hash = accountblock.momentumhash
+                    ) AS b
+                WHERE b.timestamp <= $2 
+                AND b.timestamp >= $1
+            `, [Math.floor(timeToAdd / 1000), Math.floor((timeToAdd + mSecondsPerDay) / 1000)])
+            
+            let usedPlasmaSum = 0
+            let transactionCount = 0
+            for (const transaction of transactionsInTimePeriod.rows) {
+                if (transaction.usedplasma > 0) {
+                    usedPlasmaSum += transaction.usedplasma
+                    transactionCount++
+                }
+            }
+
+            transactionCount = Math.max(1, transactionCount)
+            console.log(usedPlasmaSum, transactionCount, Math.round(usedPlasmaSum / transactionCount * 1000) / 1000);
+            
+            await db.query(`
+                INSERT INTO plasmaday(time, plasmaaverage)
+                VALUES($1, $2)
+            `, [Math.floor(timeToAdd / 1000), Math.round(usedPlasmaSum / transactionCount * 1000) / 1000])
+
+            timeToAdd += mSecondsPerDay
+        }
+        console.log('Finished updating Plasma Average per Day');
     }
 }
 
 async function processMomentum(momentum: Momentum) {
     try {
-        await db.query(`BEGIN`)
-
         // momentum
         await db.insertAddress(momentum.producer)
         await db.insertMomentum(momentum)
@@ -114,9 +172,8 @@ async function processMomentum(momentum: Momentum) {
             const accountBlock: AccountBlock = await znn.getAccountBlockByHash(accountBlockInfo.hash)
             await processAccountBlock(accountBlock)
         }
-        await db.query(`COMMIT`)
+
     } catch (e) {
-        await db.query(`ROLLBACK`)
         console.log(e);
     }
 }
@@ -180,7 +237,7 @@ async function test() {
         console.log('exists');
     } else {
         console.log('null');
-        db.insertNullTokenByStandard('zts1qqqqqqqqqqqqqqqqtq587y')
+        await db.insertNullTokenByStandard('zts1qqqqqqqqqqqqqqqqtq587y')
     }
 }
 

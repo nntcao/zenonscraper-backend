@@ -2,15 +2,23 @@ import 'dotenv/config'
 import { Pool, PoolClient } from 'pg'
 import { Momentum, Token, AccountBlock, Account } from '../znntypes'
 
-
-const pool = new Pool({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASS,
-    database: process.env.DB_DATABASE,
-    port: Number(process.env.PORT),
-})
-
+if (process.env.NODE_ENV && process.env.NODE_ENV === "TESTING") {
+    var pool = new Pool({
+        host: process.env.DB_TEST_HOST,
+        user: process.env.DB_TEST_USER,
+        password: process.env.DB_TEST_PASS,
+        database: process.env.DB_TEST_DATABASE,
+        port: Number(process.env.DB_TEST_PORT),
+    })
+} else {
+    var pool = new Pool({
+        host: process.env.DB_HOST,
+        user: process.env.DB_USER,
+        password: process.env.DB_PASS,
+        database: process.env.DB_DATABASE,
+        port: Number(process.env.DB_PORT),
+    })
+}
 
 interface IClientHandler {
     (client: PoolClient): any
@@ -161,6 +169,9 @@ export async function insertBalance(account: Account) {
 }
 
 export async function insertToken(token: Token) {
+    if (token.totalSupply == 0) {
+        console.trace()
+    }
     await insertAddress(token.owner)
     await query(`
             INSERT INTO token(tokenstandard, name, symbol, domain, totalsupply, 
