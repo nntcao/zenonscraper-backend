@@ -112,7 +112,7 @@ function updateMissingAccountBlocks() {
 
 async function updatePerDayStatistics() {
     await update()
-    const updateIntervalID = setInterval(update, 86400000)
+    const updateIntervalID = setInterval(update, 21600000)
 
     async function update() {
         console.log('Updating Plasma Average per Day and Transaction Count per Day');
