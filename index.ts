@@ -9,7 +9,7 @@ async function main() {
     // initialize()
     // updateTxsMomentumsByNotification()
     // updateMissingAccountBlocks()
-    updateAverageUsedPlasmaPerDay()
+    updatePerDayStatistics()
 }
 
 async function initialize() {
@@ -110,24 +110,25 @@ function updateMissingAccountBlocks() {
 
 }
 
-async function updateAverageUsedPlasmaPerDay() {
-    await updatePlasma()
-    const updatePlasmaOnceADayInterval = setInterval(updatePlasma, 86400000)
+async function updatePerDayStatistics() {
+    await update()
+    const updateIntervalID = setInterval(update, 86400000)
 
-    async function updatePlasma() {
-        console.log('Updating Plasma Average per Day');
+    async function update() {
+        console.log('Updating Plasma Average per Day and Transaction Count per Day');
 
         const latestPlasmaTime = await db.query(`
             SELECT MAX(time) AS latesttime FROM plasmaday
         `)
+        const latestMomentumTime: any = await db.query(`
+            SELECT MAX(timestamp) AS latesttime FROM momentum
+        `)
 
         const mSecondsPerDay: number = 86400000
-        const currentTime = new Date().getTime()
+        const currentTime = latestMomentumTime?.latesttime * 1000
 
         let timeToAdd: number = latestPlasmaTime?.rows[0]?.latesttime ? Number(latestPlasmaTime?.rows[0]?.latesttime) * 1000 + mSecondsPerDay : 1637712000000;
         while ((timeToAdd + mSecondsPerDay) < currentTime) {
-            console.log(timeToAdd + mSecondsPerDay, currentTime);
-            
             const transactionsInTimePeriod = await db.query(`
                 SELECT b.usedplasma 
                 FROM (
@@ -141,24 +142,28 @@ async function updateAverageUsedPlasmaPerDay() {
             
             let usedPlasmaSum = 0
             let transactionCount = 0
+            let transactionCountNotFromEmbedded = 0
             for (const transaction of transactionsInTimePeriod.rows) {
+                transactionCount++
                 if (transaction.usedplasma > 0) {
                     usedPlasmaSum += transaction.usedplasma
-                    transactionCount++
+                    transactionCountNotFromEmbedded++
                 }
             }
 
-            transactionCount = Math.max(1, transactionCount)
-            console.log(usedPlasmaSum, transactionCount, Math.round(usedPlasmaSum / transactionCount * 1000) / 1000);
-            
+            await db.query(`
+                INSERT INTO transactionday(time, transactioncount)
+                VALUES($1, $2)
+            `, [Math.floor(timeToAdd / 1000), transactionCount])
+
             await db.query(`
                 INSERT INTO plasmaday(time, plasmaaverage)
                 VALUES($1, $2)
-            `, [Math.floor(timeToAdd / 1000), Math.round(usedPlasmaSum / transactionCount * 1000) / 1000])
+            `, [Math.floor(timeToAdd / 1000), Math.round(usedPlasmaSum / Math.max(1, transactionCountNotFromEmbedded) * 1000) / 1000])
 
             timeToAdd += mSecondsPerDay
         }
-        console.log('Finished updating Plasma Average per Day');
+        console.log('Finished updating Plasma Average per Day and Transaction Count per Day');
     }
 }
 
