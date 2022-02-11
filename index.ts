@@ -6,9 +6,9 @@ import * as WebSocket from 'ws'
 import { timeout } from './utils/time'
 
 async function main() {
-    // initialize()
-    // updateTxsMomentumsByNotification()
-    // updateMissingAccountBlocks()
+    initialize()
+    await updateTxsMomentumsByNotification()
+    updateMissingAccountBlocks()
     updatePerDayStatistics()
 }
 
@@ -117,7 +117,7 @@ async function updatePerDayStatistics() {
     async function update() {
         console.log('Updating Plasma Average per Day and Transaction Count per Day');
 
-        const latestPlasmaTime = await db.query(`
+        const latestDailyTime = await db.query(`
             SELECT MAX(time) AS latesttime FROM plasmaday
         `)
         const latestMomentumTime: any = await db.query(`
@@ -125,9 +125,9 @@ async function updatePerDayStatistics() {
         `)
 
         const mSecondsPerDay: number = 86400000
-        const currentTime = latestMomentumTime?.latesttime * 1000
+        const currentTime = latestMomentumTime.rows[0]?.latesttime * 1000
+        let timeToAdd: number = latestDailyTime?.rows[0]?.latesttime ? Number(latestDailyTime?.rows[0]?.latesttime) * 1000 + mSecondsPerDay : 1637712000000
 
-        let timeToAdd: number = latestPlasmaTime?.rows[0]?.latesttime ? Number(latestPlasmaTime?.rows[0]?.latesttime) * 1000 + mSecondsPerDay : 1637712000000;
         while ((timeToAdd + mSecondsPerDay) < currentTime) {
             const transactionsInTimePeriod = await db.query(`
                 SELECT b.usedplasma 
@@ -136,7 +136,7 @@ async function updatePerDayStatistics() {
                     INNER JOIN momentum
                     ON momentum.hash = accountblock.momentumhash
                     ) AS b
-                WHERE b.timestamp <= $2 
+                WHERE b.timestamp <= $2
                 AND b.timestamp >= $1
             `, [Math.floor(timeToAdd / 1000), Math.floor((timeToAdd + mSecondsPerDay) / 1000)])
             
