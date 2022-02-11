@@ -14,8 +14,8 @@ async function main() {
 
 async function initialize() {
     const momentumBatchSize = 1000
-    let height = (await getStartingHeight()) - 5
-    // let height = 539923
+    let height = (await getStartingHeight())
+    // let height = 642758
 
     let counter = height
     console.log('initializing');
@@ -217,23 +217,52 @@ async function processAccountBlock(accountBlock: AccountBlock) {
 }
 
 async function getStartingHeight() {
-    const heightResults: QueryResult | undefined = await db.query(`
-        SELECT height 
-        FROM momentum
-        ORDER BY height ASC
-    `)
-
+    
+    let offset = 0
+    let previousHeight = 0
     let startingHeight: number = 1
-    if (typeof heightResults !== 'undefined') {
-        for (let row of heightResults.rows) {
-            if (row.height === startingHeight) {
-                startingHeight++
-            } else {
-                break
+    let batchSize = 60000
+    do {
+        previousHeight = startingHeight
+        const heightResults: QueryResult | undefined = await db.query(`
+            SELECT height
+            FROM momentum
+            ORDER BY height ASC
+            LIMIT $2
+            OFFSET $1
+        `, [offset, batchSize])
+
+        if (typeof heightResults !== 'undefined') {
+            for (let row of heightResults.rows) {
+                if (row.height === startingHeight) {
+                    startingHeight += 1
+                } else {
+                    const redundantMomentums = await db.query(`
+                        SELECT height, timestamp, hash
+                        FROM momentum
+                        WHERE height = $1
+                        ORDER BY timestamp DESC
+                    `, [row.height])
+                    if (redundantMomentums.rowCount > 1) {
+                        await db.query(`
+                            DELETE FROM momentum WHERE height = $1
+                        `, [row.height])
+
+                        const newMomentum = await znn.getMomentumByHeight(row.height)
+                        await db.insertMomentum(newMomentum)
+                    } else {
+                        break
+                    }
+                }
             }
         }
-    }
-    return startingHeight
+        offset += batchSize
+        console.log(`The condition: ${startingHeight} >= ${previousHeight + batchSize}`);
+        
+    } while (startingHeight >= previousHeight + batchSize)
+
+    console.log(`The starting height ${startingHeight}`)
+    return startingHeight - 1
 }
 
 async function test() {
