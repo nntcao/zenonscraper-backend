@@ -6,9 +6,9 @@ import * as WebSocket from 'ws'
 import { timeout } from './utils/time'
 
 async function main() {
-    initialize()
-    await updateTxsMomentumsByNotification()
+    updateTxsMomentumsByNotification()
     updateMissingAccountBlocks()
+    await initialize()
     updatePerDayStatistics()
 }
 
