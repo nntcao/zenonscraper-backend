@@ -1,4 +1,4 @@
-# zenonscraper database writer
+# ZenonScraper-db - the backend for Zenon Scraper
 
 The backend for zenonscraper responsible for handling read/write interactions between the ZNN JSON-RPC API and the PostgreSQL database. 
 
