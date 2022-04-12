@@ -14,7 +14,7 @@ async function main() {
 
 async function initialize() {
     const momentumBatchSize = 1000
-    let height = (await getStartingHeight())
+    let height = (await getStartingHeight() - 1)
     // let height = 642758
 
     let counter = height
