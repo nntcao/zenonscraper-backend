@@ -1,6 +1,6 @@
 import 'dotenv/config'
 import axios from 'axios'
-import { timeout } from '../utils/time'
+import { timeout } from '../../utils/time'
 
 const requestsPerSecond: number = 0
 

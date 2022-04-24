@@ -1,6 +1,6 @@
 import 'dotenv/config'
 import { Pool, PoolClient } from 'pg'
-import { Momentum, Token, AccountBlock, Account } from '../znntypes'
+import { Momentum, Token, AccountBlock, Account } from '../../znntypes'
 
 if (process.env.NODE_ENV && process.env.NODE_ENV === "TESTING") {
     var pool = new Pool({
