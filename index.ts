@@ -1,6 +1,6 @@
 import { QueryResult } from 'pg'
-import * as db from './services/db'
-import * as znn from './services/znn'
+import * as db from './services/data_access/db'
+import * as znn from './services/data_access/znn'
 import { Momentum, Token, AccountBlock, Account } from './znntypes'
 import * as WebSocket from 'ws'
 import { timeout } from './utils/time'
@@ -14,8 +14,7 @@ async function main() {
 
 async function initialize() {
     const momentumBatchSize = 1000
-    let height = (await getStartingHeight())
-    // let height = 642758
+    let height = await getStartingHeight()
 
     let counter = height
     console.log('initializing');
