@@ -77,9 +77,6 @@ export async function insertAccountBlock(accountBlock: AccountBlock) {
 
     const momentumHash = accountBlock?.confirmationDetail?.momentumHash
     const momentumAcknowledgedHash = accountBlock?.momentumAcknowledged?.hash
-    if (!momentumHash) {
-        // console.log(momentumHash, accountBlock.hash)
-    }
     const pairedAccountBlockHash = accountBlock?.pairedAccountBlock?.hash
     if (pairedAccountBlockHash) {
         await query(`
@@ -169,9 +166,6 @@ export async function insertBalance(account: Account) {
 }
 
 export async function insertToken(token: Token) {
-    if (token.totalSupply == 0) {
-        console.trace()
-    }
     await insertAddress(token.owner)
     await query(`
             INSERT INTO token(tokenstandard, name, symbol, domain, totalsupply, 
@@ -216,4 +210,13 @@ export async function insertNullTokenByStandard(tokenStandard: string) {
         null
     ]
     )
+}
+
+export async function getMomentumsByRange(start, limit=1000) {
+    const dbMomentumBatch = await query(`
+        SELECT * FROM momentum
+        WHERE height > $1 
+        LIMIT $3
+    `, [start, limit])
+    return dbMomentumBatch?.rows
 }
